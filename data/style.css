@@ -1,0 +1,139 @@
+body {
+  font-family: sans-serif;
+  margin: 2rem;
+  background: #222;
+  color: #eee;
+}
+
+.card {
+  background: #333;
+  padding: 20px;
+  border-radius: 8px;
+  margin: auto;
+  max-width: 380px;
+}
+
+.wifi-card {
+  padding: 24px;
+  border-radius: 10px;
+  max-width: 370px;
+}
+
+.wifi-btn {
+  display: block;
+  background: linear-gradient(90deg, #40c9ff, #0081eb 80%);
+  color: #fff;
+  text-align: center;
+  padding: 12px;
+  border-radius: 6px;
+  margin: 12px 0;
+  text-decoration: none;
+  border: 2px solid #3af;
+  transition: 0.2s;
+  font-size: 1em;
+}
+
+.wifi-btn:hover {
+  background: #0081eb;
+  border-color: #50d9ff;
+  box-shadow: 0 0 16px #0081ebb0;
+}
+
+label {
+  display: block;
+  margin: 8px 0;
+}
+
+input[type="number"],
+input[type="password"],
+input[type="text"] {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 12px;
+  padding: 8px;
+  border: 1px solid #444;
+  border-radius: 5px;
+  background: #222;
+  color: #eee;
+}
+
+input[type="color"] {
+  display: block;
+  width: 100%;
+  height: 44px;
+  box-sizing: border-box;
+  margin-bottom: 12px;
+  padding: 2px;
+  border: 1px solid #444;
+  border-radius: 5px;
+  background: #222;
+  cursor: pointer;
+}
+
+select {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 12px;
+  padding: 8px;
+  border: 1px solid #444;
+  border-radius: 5px;
+  background: #222;
+  color: #eee;
+}
+
+button {
+  width: 100%;
+  padding: 12px;
+  background: #29c2ff;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 1em;
+  cursor: pointer;
+  margin-top: 12px;
+}
+
+.wifi-list {
+  margin: 0 0 18px 0;
+}
+
+.ssid-btn {
+  display: block;
+  text-align: left;
+  padding: 9px;
+  margin-bottom: 7px;
+  background: #222;
+  border: 1px solid #555;
+  border-radius: 5px;
+  color: #49f;
+  cursor: pointer;
+  transition: 0.22s;
+}
+
+.ssid-btn:hover {
+  background: #333;
+  border-color: #13d;
+  color: #5cf;
+}
+
+.card-footer {
+  margin-top: 12px;
+  font-size: 0.9em;
+  color: #ccc;
+}
+
+.hidden {
+  display: none;
+}
+
+#currentTime {
+  margin: 12px;
+  color: #fa8c16;
+  font-weight: bold;
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  font-size: 60px;
+}

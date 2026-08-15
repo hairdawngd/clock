@@ -6,9 +6,11 @@
 #define DAYLIGHT_OFFSET_SEC 0
 
 // LED Configuration
-#define LED_PIN 2
-#define NUM_LEDS 60
-#define BRIGHTNESS 100
+#define LED_PIN_1 2
+#define LED_PIN_2 3
+#define NUM_LEDS_1 60
+#define NUM_LEDS_2 70
+#define BRIGHTNESS 255
 #define LED_TYPE WS2812
 #define COLOR_ORDER GRB
 

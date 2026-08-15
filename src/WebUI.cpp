@@ -1,6 +1,9 @@
 #include "WebUI.h"
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
+#include <ArduinoJson.h>
+#include <FS.h>
+#include <SPIFFS.h>
 #include "Settings.h"
 #include "Config.h"
 #include "TimeManager.h"
@@ -11,199 +14,230 @@ extern LedDisplay display;
 
 AsyncWebServer server(80);
 
-const char* htmlTemplate = R"rawliteral(
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>LED Clock Setup</title>
-  <style>
-    body { font-family: sans-serif; margin: 2rem; background: #222; color: #eee; }
-    .wifi-btn { display:block; background: linear-gradient(90deg,#40c9ff,#0081eb 80%); color: #fff; text-decoration: none; text-align: center; padding: 12px; border-radius: 6px; margin:12px 0 18px 0; font-weight:500; font-size:1.06em; letter-spacing:.04em; border:2px solid #3af; transition:.2s; }
-    .wifi-btn:hover { background:#0081eb; border-color:#50d9ff; color:#fff; box-shadow:0 0 16px #0081ebb0; }
-    button { padding: 12px; background: #29c2ff; color: white; border: none; border-radius: 8px; cursor: pointer; width: 100%; margin-top: 10px; font-size:1em; }
-    .card { background: #333; padding: 20px; border-radius: 8px; margin: auto; }
-    .time { font-size: 2rem; text-align: center; margin: 10px 0; font-family: monospace; }
-    label, input { display: block; margin: 8px 0; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <h2>LED Clock Setup</h2>
-    <svg id="ledCircle" viewBox="0 0 300 300" width="100%" style="max-width:300px;display:block;margin:0 auto;"></svg>
-    <div class="time" id="clock">--:--:--</div>
-    <button onclick="syncTime()">Sync Time Now</button>
-    <div style="display: flex; gap: 10px;">
-      <button onclick="testEffect('minute')">Test Min Effect</button>
-      <button onclick="testEffect('hour')">Test Hour Effect</button>
-    </div>
-    <a href="/connectwifi" class="wifi-btn">Connect to WiFi</a>
-    <form action="/save" method="POST">
-      <label>Hour Color (Hex):</label>
-      <input type="color" name="chour" value="#%CHOUR%">
-      <label>Minute Color (Hex):</label>
-      <input type="color" name="cmin" value="#%CMIN%">
-      <label>Second Color (Hex):</label>
-      <input type="color" name="csec" value="#%CSEC%">
-      <label>Minute Effect Duration (ms):</label>
-      <input type="number" name="minute_effect" min="1000" max="10000" step="1000" value="%MINUTE_EFFECT%">
-      <label>Hour Effect Duration (ms):</label>
-      <input type="number" name="hour_effect" min="1000" max="10000" step="1000" value="%HOUR_EFFECT%">
-      <label>GMT Offset (Hours):</label>
-      <input type="number" name="gmt_offset" min="-12" max="14" step="1" value="%GMT_OFFSET%">
-      <button type="submit">Save Changes</button>
-    </form>
-    <div style="margin-top:12px;font-size:0.9em;color:#ccc;">
-      WiFi setup handled by WiFiManager portal.<br/>
-      Access <code>192.168.4.1</code> to reconfigure WiFi if needed.
-    </div>
-  </div>
-  <script>
-    const COLORS = { hour: '#%CHOUR%', minute: '#%CMIN%', second: '#%CSEC%' };
-    const NUM_LEDS = 60;
-    const leds = [];
-    const svg = document.getElementById('ledCircle');
-    const cx = 150, cy = 150, rad = 120;
-    for (let i = 0; i < NUM_LEDS; i++) {
-      const ang = (i * 6 - 90) * Math.PI / 180;
-      const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      c.setAttribute('cx', cx + rad * Math.cos(ang));
-      c.setAttribute('cy', cy + rad * Math.sin(ang));
-      c.setAttribute('r', 6);
-      c.setAttribute('fill', '#333');
-      svg.appendChild(c);
-      leds.push(c);
-    }
-    function updateClock(timeStr) {
-      const parts = timeStr.split(':').map(Number);
-      if (parts.length !== 3 || parts.some(isNaN)) return;
-      const [h, m, s] = parts;
-      const hourLed = (h % 12) * 5 + Math.floor(m / 12);
-      leds.forEach((led, i) => {
-        if (i === s) led.setAttribute('fill', COLORS.second);
-        else if (i === m) led.setAttribute('fill', COLORS.minute);
-        else if (i === hourLed) led.setAttribute('fill', COLORS.hour);
-        else led.setAttribute('fill', '#333');
-      });
-      document.getElementById('clock').innerText = timeStr;
-    }
-    function fetchTime() {
-      fetch('/api/time').then(r => r.text()).then(t => updateClock(t));
-    }
-    function syncTime() {
-      fetch('/sync').then(() => fetchTime());
-    }
-    function testEffect(type) {
-      fetch('/test_effect?type=' + type).then(() => alert('Triggered ' + type + ' effect.'));
-    }
-    fetchTime();
-    setInterval(fetchTime, 1000);
-  </script>
-</body>
-</html>
-)rawliteral";
+void handleScan(AsyncWebServerRequest *request) {
+  int n = WiFi.scanComplete();
+  JsonDocument doc;
+  
+  if (n == WIFI_SCAN_RUNNING || n == WIFI_SCAN_FAILED || n < 0) {
+      if (n == WIFI_SCAN_FAILED || n < 0) WiFi.scanNetworks(true, true);
+      JsonArray array = doc.to<JsonArray>();
+      String response;
+      serializeJson(doc, response);
+      request->send(200, "application/json", response);
+      return;
+  }
 
-String toHexColor(uint32_t c) {
-    char buf[10];
-    sprintf(buf, "%06X", c);
-    return String(buf);
+  JsonArray array = doc.to<JsonArray>();
+  for(int i=0;i<n;i++){
+      if (WiFi.SSID(i).length() > 0) {
+          array.add(WiFi.SSID(i));
+      }
+  }
+  
+  String response;
+  serializeJson(doc, response);
+  
+  WiFi.scanDelete();
+  WiFi.scanNetworks(true, true);
+  request->send(200, "application/json", response);
 }
 
-uint32_t parseHexColor(String hexStr) {
-    if (hexStr.startsWith("#")) hexStr.remove(0, 1);
-    return strtol(hexStr.c_str(), NULL, 16);
+void handleWifiPage(AsyncWebServerRequest *request) {
+  File f = SPIFFS.open("/wifi.html", "r");
+  if (!f) {
+    request->send(404, "text/html", "Không tìm thấy wifi.html");
+    return;
+  }
+  String html = f.readString();
+  f.close();
+  request->send(200, "text/html", html);
+}
+
+void handleConnect(AsyncWebServerRequest *request) {
+  String ssid, pwd;
+  if (request->hasParam("ssid", true))
+    ssid = request->getParam("ssid", true)->value();
+  if (request->hasParam("password", true))
+    pwd = request->getParam("password", true)->value();
+
+  if (!ssid.length()) {
+    Serial.println("[ERROR] Missing SSID. Cannot connect.");
+    JsonDocument errDoc;
+    errDoc["error"] = "No SSID.";
+    String errResp;
+    serializeJson(errDoc, errResp);
+    request->send(400, "application/json", errResp);
+    return;
+  }
+
+  Serial.printf("[WIFI] Received Connect Request -> SSID: %s; PWD: %s\n", ssid.c_str(), pwd.c_str());
+
+  wifiSSID = ssid;
+  wifiPass = pwd;
+  saveSettings();
+
+  Serial.println("[WIFI] Config saved. Restarting; boot will connect STA or fallback AP.");
+
+  JsonDocument doc;
+  doc["status"] = "ok";
+  doc["message"] = "Đã lưu WiFi. ESP32 sẽ khởi động lại và kết nối WiFi.";
+  String response;
+  serializeJson(doc, response);
+  request->send(200, "application/json", response);
+
+  xTaskCreate(
+      [](void *param) {
+        vTaskDelay(1200 / portTICK_PERIOD_MS);
+        ESP.restart();
+        vTaskDelete(nullptr);
+      },
+      "restart_after_wifi_save",
+      2048,
+      nullptr,
+      1,
+      nullptr);
 }
 
 void handleRoot(AsyncWebServerRequest *request) {
-    String html = htmlTemplate;
-    html.replace("%CHOUR%", toHexColor(colorHour));
-    html.replace("%CMIN%", toHexColor(colorMinute));
-    html.replace("%CSEC%", toHexColor(colorSecond));
-    html.replace("%MINUTE_EFFECT%", String(minuteEffectDuration));
-    html.replace("%HOUR_EFFECT%", String(hourEffectDuration));
-    html.replace("%GMT_OFFSET%", String(gmtOffsetHours));
+    File f = SPIFFS.open("/setup.html", "r");
+    if (!f) {
+        request->send(404, "text/html", "Không tìm thấy setup.html");
+        return;
+    }
+    String html = f.readString();
+    f.close();
     request->send(200, "text/html", html);
+}
+
+void handleApiSettings(AsyncWebServerRequest *request) {
+    char hexH[8], hexM[8], hexS[8];
+    snprintf(hexH, sizeof(hexH), "#%06lx", (unsigned long)(colorHour & 0xFFFFFF));
+    snprintf(hexM, sizeof(hexM), "#%06lx", (unsigned long)(colorMinute & 0xFFFFFF));
+    snprintf(hexS, sizeof(hexS), "#%06lx", (unsigned long)(colorSecond & 0xFFFFFF));
+    
+    JsonDocument doc;
+    doc["chour"] = hexH;
+    doc["cmin"] = hexM;
+    doc["csec"] = hexS;
+    doc["minute_effect"] = minuteEffectDuration;
+    doc["hour_effect"] = hourEffectDuration;
+    doc["gmt_offset"] = gmtOffsetHours;
+    
+    doc["eff_n2"] = effectNormal2;
+    doc["eff_m2"] = effectMinute2;
+    doc["eff_h2"] = effectHour2;
+    doc["brightness_led1"] = brightnessLed1;
+    doc["brightness_led2"] = brightnessLed2;
+
+    String response;
+    serializeJson(doc, response);
+    request->send(200, "application/json", response);
 }
 
 void handleGetTime(AsyncWebServerRequest *request) {
-    request->send(200, "text/plain", timeManager.getTimeString());
+    JsonDocument doc;
+    doc["time"] = timeManager.getTimeString();
+    String response;
+    serializeJson(doc, response);
+    request->send(200, "application/json", response);
 }
-
 void handleSync(AsyncWebServerRequest *request) {
     timeManager.syncTime();
-    request->send(200, "text/plain", timeManager.getTimeString());
+    JsonDocument doc;
+    doc["status"] = "ok";
+    doc["time"] = timeManager.getTimeString();
+    String response;
+    serializeJson(doc, response);
+    request->send(200, "application/json", response);
 }
-
 void handleTestEffect(AsyncWebServerRequest *request) {
     if (request->hasParam("type")) {
         String type = request->getParam("type")->value();
-        if (type == "minute") {
-            display.triggerEffect(STATE_MINUTE_EFFECT);
-        } else if (type == "hour") {
-            display.triggerEffect(STATE_HOUR_EFFECT);
-        }
+        if (type == "minute") display.triggerEffect(STATE_MINUTE_EFFECT);
+        else if (type == "hour") display.triggerEffect(STATE_HOUR_EFFECT);
     }
-    request->send(200, "text/plain", "OK");
+    JsonDocument doc;
+    doc["status"] = "ok";
+    String response;
+    serializeJson(doc, response);
+    request->send(200, "application/json", response);
 }
 
+void handleTestColor(AsyncWebServerRequest *request) {
+    if (request->hasParam("chour", true) && request->hasParam("cmin", true) && request->hasParam("csec", true)) {
+        String vH = request->getParam("chour", true)->value();
+        String vM = request->getParam("cmin", true)->value();
+        String vS = request->getParam("csec", true)->value();
+        if (vH.startsWith("#")) vH = vH.substring(1);
+        if (vM.startsWith("#")) vM = vM.substring(1);
+        if (vS.startsWith("#")) vS = vS.substring(1);
+        
+        display.updateColorLive(
+            strtoul(vH.c_str(), nullptr, 16),
+            strtoul(vM.c_str(), nullptr, 16),
+            strtoul(vS.c_str(), nullptr, 16)
+        );
+    }
+    request->send(200, "text/plain", "ok");
+}
 void handleSave(AsyncWebServerRequest *request) {
-    if (request->hasParam("chour", true)) colorHour = parseHexColor(request->getParam("chour", true)->value());
-    if (request->hasParam("cmin", true)) colorMinute = parseHexColor(request->getParam("cmin", true)->value());
-    if (request->hasParam("csec", true)) colorSecond = parseHexColor(request->getParam("csec", true)->value());
+    if (request->hasParam("chour", true)) {
+        String val = request->getParam("chour", true)->value();
+        if (val.startsWith("#")) val = val.substring(1);
+        colorHour = strtoul(val.c_str(), nullptr, 16);
+    }
+    if (request->hasParam("cmin", true)) {
+        String val = request->getParam("cmin", true)->value();
+        if (val.startsWith("#")) val = val.substring(1);
+        colorMinute = strtoul(val.c_str(), nullptr, 16);
+    }
+    if (request->hasParam("csec", true)) {
+        String val = request->getParam("csec", true)->value();
+        if (val.startsWith("#")) val = val.substring(1);
+        colorSecond = strtoul(val.c_str(), nullptr, 16);
+    }
     if (request->hasParam("minute_effect", true)) minuteEffectDuration = request->getParam("minute_effect", true)->value().toInt();
     if (request->hasParam("hour_effect", true)) hourEffectDuration = request->getParam("hour_effect", true)->value().toInt();
     if (request->hasParam("gmt_offset", true)) gmtOffsetHours = request->getParam("gmt_offset", true)->value().toInt();
+    
+    if (request->hasParam("eff_n2", true)) effectNormal2 = request->getParam("eff_n2", true)->value().toInt();
+    if (request->hasParam("eff_m2", true)) effectMinute2 = request->getParam("eff_m2", true)->value().toInt();
+    if (request->hasParam("eff_h2", true)) effectHour2 = request->getParam("eff_h2", true)->value().toInt();
+    if (request->hasParam("brightness_led1", true)) brightnessLed1 = constrain(request->getParam("brightness_led1", true)->value().toInt(), 0, 255);
+    if (request->hasParam("brightness_led2", true)) brightnessLed2 = constrain(request->getParam("brightness_led2", true)->value().toInt(), 0, 255);
+    
     saveSettings();
-    request->send(200, "text/html", "Settings saved. Rebooting...");
-    delay(1000);
-    ESP.restart();
+    display.updateColorLive(colorHour, colorMinute, colorSecond);
+    timeManager.syncTime();
+    
+    JsonDocument doc;
+    doc["message"] = "Đã lưu cài đặt.";
+    String response;
+    serializeJson(doc, response);
+    request->send(200, "application/json", response);
 }
-
-extern bool enterWiFiSetup;
-
-void handleConnectWifi(AsyncWebServerRequest *request) {
-    String html = R"rawliteral(
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta http-equiv="refresh" content="3;url=http://192.168.4.1/">
-  <style>body{font-family:sans-serif;margin:2rem;background:#222;color:#eee;text-align:center;}</style>
-</head>
-<body>
-  <h2>Entering WiFi Config Mode...</h2>
-  <p>If you are connected to the "LED Clock" WiFi, you will be redirected automatically.</p>
-  <p>Otherwise, please manually connect your device to the WiFi network <b>LED Clock</b> (Password: 12345678) to continue.</p>
-</body>
-</html>
-)rawliteral";
-    request->send(200, "text/html", html);
-    enterWiFiSetup = true;
-}
-
-// Captive portal redirect handling
 void handleNotFound(AsyncWebServerRequest *request) {
-    if (request->host() != WiFi.softAPIP().toString() && 
-        request->host() != WiFi.localIP().toString()) {
-        AsyncWebServerResponse *response = request->beginResponse(302, "text/plain", "");
-        response->addHeader("Location", String("http://") + WiFi.softAPIP().toString());
-        request->send(response);
-        return;
-    }
-    request->send(404, "text/plain", "Not Found");
+    JsonDocument doc;
+    doc["error"] = "Not Found";
+    String response;
+    serializeJson(doc, response);
+    request->send(404, "application/json", response);
 }
 
 void setupWebUI() {
+    server.serveStatic("/style.css", SPIFFS, "/style.css");
+    server.serveStatic("/wifi.js", SPIFFS, "/wifi.js");
+    server.serveStatic("/app.js", SPIFFS, "/app.js");
     server.on("/", HTTP_GET, handleRoot);
-    server.on("/save", HTTP_POST, handleSave);
+    server.on("/api/settings", HTTP_GET, handleApiSettings);
+    server.on("/api/save", HTTP_POST, handleSave);
     server.on("/api/time", HTTP_GET, handleGetTime);
     server.on("/sync", HTTP_GET, handleSync);
     server.on("/test_effect", HTTP_GET, handleTestEffect);
-    server.on("/connectwifi", HTTP_GET, handleConnectWifi);
-    server.onNotFound(handleNotFound); // Capture captive portal requests
+    server.on("/api/test_color", HTTP_POST, handleTestColor);
+    server.on("/connectwifi", HTTP_GET, handleWifiPage);
+    server.on("/scan", HTTP_GET, handleScan);
+    server.on("/connect", HTTP_POST, handleConnect);
+    server.onNotFound(handleNotFound);
     server.begin();
-}
-
-void stopWebUI() {
-    server.end();
 }

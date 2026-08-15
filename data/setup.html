@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>Cài đặt Đồng Hồ LED</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+  <div class="card">
+    <h2>Cài đặt Đồng Hồ LED</h2>
+    <div id="currentTime"></div>
+    <a href="/connectwifi" class="wifi-btn">Kết nối WiFi</a>
+    <form id="setupForm">
+      <label for="chour">Màu Giờ:</label>
+      <input id="chour" type="color" name="chour" value="#ffffff">
+      <label for="cmin">Màu Phút:</label>
+      <input id="cmin" type="color" name="cmin" value="#ffffff">
+      <label for="csec">Màu Giây:</label>
+      <input id="csec" type="color" name="csec" value="#ffffff">
+
+      <label for="minute_effect">Thời gian hiệu ứng phút (ms):</label>
+      <input id="minute_effect" type="number" name="minute_effect" min="1000" max="10000" step="1000" value="2000">
+
+      <label for="hour_effect">Thời gian hiệu ứng giờ (ms):</label>
+      <input id="hour_effect" type="number" name="hour_effect" min="1000" max="10000" step="1000" value="3000">
+
+      <hr style="margin:20px 0; border:1px solid #333;">
+      <h3>Độ sáng LED</h3>
+      <label for="brightness_led1">Độ sáng LED 1:</label>
+      <input id="brightness_led1" type="range" name="brightness_led1" min="0" max="255" value="255">
+      <span id="brightness_led1_value">255</span>
+
+      <label for="brightness_led2">Độ sáng LED 2:</label>
+      <input id="brightness_led2" type="range" name="brightness_led2" min="0" max="255" value="255">
+      <span id="brightness_led2_value">255</span>
+
+      <hr style="margin:20px 0; border:1px solid #333;">
+      <h3>Hiệu ứng LED 2</h3>
+      <label for="eff_n2">Hiệu ứng Bình thường:</label>
+      <select id="eff_n2" name="eff_n2">
+        <option value="0">Tắt</option>
+        <option value="1">Cầu vồng</option>
+        <option value="2">Sao băng</option>
+        <option value="3">Nhịp thở</option>
+        <option value="4">Đổi màu ngẫu nhiên</option>
+        <option value="5">Chớp nháy</option>
+        <option value="6">Lửa</option>
+        <option value="7">Đuổi màu</option>
+        <option value="8">Lấp lánh</option>
+      </select>
+
+      <label for="eff_m2">Hiệu ứng chuyển Phút:</label>
+      <select id="eff_m2" name="eff_m2">
+        <option value="0">Tắt</option>
+        <option value="1">Cầu vồng</option>
+        <option value="2">Sao băng</option>
+        <option value="3">Nhịp thở</option>
+        <option value="4">Đổi màu ngẫu nhiên</option>
+        <option value="5">Chớp nháy</option>
+        <option value="6">Lửa</option>
+        <option value="7">Đuổi màu</option>
+        <option value="8">Lấp lánh</option>
+      </select>
+
+      <label for="eff_h2">Hiệu ứng chuyển Giờ:</label>
+      <select id="eff_h2" name="eff_h2">
+        <option value="0">Tắt</option>
+        <option value="1">Cầu vồng</option>
+        <option value="2">Sao băng</option>
+        <option value="3">Nhịp thở</option>
+        <option value="4">Đổi màu ngẫu nhiên</option>
+        <option value="5">Chớp nháy</option>
+        <option value="6">Lửa</option>
+        <option value="7">Đuổi màu</option>
+        <option value="8">Lấp lánh</option>
+      </select>
+
+      <hr style="margin:20px 0; border:1px solid #333;">
+
+      <label for="gmt_offset">Múi giờ GMT:</label>
+      <input id="gmt_offset" type="number" name="gmt_offset" min="-12" max="14" step="1" value="7">
+
+      <button type="submit" id="btnSave">Lưu cài đặt</button>
+    </form>
+    <div id="saveResult" style="margin-top: 10px; color: #40c9ff;"></div>
+    
+    <div class="card-footer">
+      <strong>Hostname mạng:</strong> clock-led
+    </div>
+  </div>
+  <script src="/app.js"></script>
+</body>
+
+</html>

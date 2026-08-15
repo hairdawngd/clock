@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Connect WiFi</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="card wifi-card">
+  <h2>Connect to WiFi</h2>
+  <div id="wifiContainer">Đang tải...</div>
+  <form id="wifiForm">
+    <label for="ssidInput">SSID:</label>
+    <input name="ssid" id="ssidInput" type="text" required>
+    <label for="pwdInput">Password:</label>
+    <input name="password" id="pwdInput" type="password">
+    <button id="btn" type="submit">Kết nối</button>
+  </form>
+  <div id="result"></div>
+</div>
+<script src="/wifi.js"></script>
+</body>
+</html>
