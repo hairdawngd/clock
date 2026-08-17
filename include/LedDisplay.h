@@ -28,7 +28,10 @@ private:
     void drawNormalTime(int h, int m, int s);
     void drawMinuteEffect();
     void drawHourEffect();
+    int mapClockValueToLed(int value);
+    void setClockLed(int idx, const CRGB &color);
     // ponytail: effect split index 60, effect use leds+60, NUM_LEDS-60
     
     int mapHourToLed(int h);
+    void preserveClockEdge(int hour, int minute, int second);
 };

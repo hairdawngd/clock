@@ -7,8 +7,9 @@
 
 // LED Configuration
 #define LED_PIN 2
-#define NUM_LEDS 70 // tổng số led vật lý (1-60: clock, 61+: effect, thay theo dải thật)
-#define CLOCK_LED_COUNT 60 // số led làm mặt đồng hồ, chỉnh theo yêu cầu
+#define NUM_LEDS 70
+#define CLOCK_LED_COUNT 60 
+#define EFFECT_START_INDEX 61
 #define BRIGHTNESS 255
 #define LED_TYPE WS2812
 #define COLOR_ORDER GRB

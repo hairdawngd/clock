@@ -14,10 +14,20 @@ void LedDisplay::updateColorLive(uint32_t cHour, uint32_t cMin, uint32_t cSec) {
     colorSecond = cSec;
 }
 
-static int mapClockValueToLed(int value) {
+int LedDisplay::mapClockValueToLed(int value) {
     value %= CLOCK_LED_COUNT;
     if (value < 0) value += CLOCK_LED_COUNT;
     return value;
+}
+
+void LedDisplay::setClockLed(int idx, const CRGB &color) {
+    int i = mapClockValueToLed(idx);
+    if (i >= 0 && i < NUM_LEDS) leds[i] = color;
+    // Mirror physical LED 60 (index EFFECT_START_INDEX-1) to follow LED 1 (index 0)
+    if (i == 0) {
+        int mirror = EFFECT_START_INDEX - 1;
+        if (mirror >= 0 && mirror < NUM_LEDS) leds[mirror] = color;
+    }
 }
 
 int LedDisplay::mapHourToLed(int h) {
@@ -71,7 +81,20 @@ void LedDisplay::update(int hour, int minute, int second) {
     }
 
     nscale8_video(leds, NUM_LEDS, constrain(brightness, 0, 255));
+    preserveClockEdge(hour, minute, second);
     FastLED.show();
+}
+
+void LedDisplay::preserveClockEdge(int hour, int minute, int second) {
+    int mirrorIndex = EFFECT_START_INDEX - 1; // physical LED 60
+    if (mirrorIndex < 0 || mirrorIndex >= NUM_LEDS) return;
+
+    int s = mapClockValueToLed(second);
+    int m = mapClockValueToLed(minute);
+    int h = mapHourToLed(hour);
+
+    // Mirror whatever is currently at LED index 0 (physical LED 1)
+    if (0 >= 0 && 0 < NUM_LEDS) leds[mirrorIndex] = leds[0];
 }
 
 void LedDisplay::drawNormalTime(int h, int m, int s) {
@@ -81,18 +104,21 @@ void LedDisplay::drawNormalTime(int h, int m, int s) {
     for (int i = 0; i < CLOCK_LED_COUNT && i < NUM_LEDS; i++) {
         leds[i] = CRGB::Black;
     }
+    // Also clear the mirror LED (physical 60 -> index EFFECT_START_INDEX-1)
+    int mirrorIndex = EFFECT_START_INDEX - 1;
+    if (mirrorIndex >= 0 && mirrorIndex < NUM_LEDS) leds[mirrorIndex] = CRGB::Black;
 
     // Fixed clock markers: 12, 3, 6, 9. Draw first so hands can overlap them.
     const int markers[] = {0, 15, 30, 45};
     for (int marker : markers) {
-        if (marker < NUM_LEDS) leds[marker] = colorMarker;
+        setClockLed(marker, colorMarker);
     }
 
     // led[0] is physical LED 1 and clock position 12.
     // Vẽ giờ sau cùng để kim giờ không bị giây/phút đè (giây quét mọi vị trí mỗi phút).
-    leds[s] = colorSecond;
-    leds[m] = colorMinute;
-    leds[mapHourToLed(h)] = colorHour;
+    setClockLed(s, colorSecond);
+    setClockLed(m, colorMinute);
+    setClockLed(mapHourToLed(h), colorHour);
 }
 
 
@@ -100,11 +126,11 @@ void LedDisplay::drawMinuteEffect() {
     // Vùng effect bắt đầu từ led 60 trở đi
     static uint8_t hue = 0;
     hue += 5;
-    if(NUM_LEDS <= CLOCK_LED_COUNT) return; // không đủ led cho effect
-    fadeToBlackBy(leds + CLOCK_LED_COUNT, NUM_LEDS-CLOCK_LED_COUNT, 20);
+    if(NUM_LEDS <= EFFECT_START_INDEX) return; // không đủ led cho effect
+    fadeToBlackBy(leds + EFFECT_START_INDEX, NUM_LEDS-EFFECT_START_INDEX, 20);
 
     if (random8() < 120) {
-        int pos = random16(NUM_LEDS-CLOCK_LED_COUNT) + CLOCK_LED_COUNT;
+        int pos = random16(NUM_LEDS-EFFECT_START_INDEX) + EFFECT_START_INDEX;
         leds[pos] += CHSV(random8(), 255, 255);
     }
 }
@@ -112,15 +138,15 @@ void LedDisplay::drawMinuteEffect() {
 void LedDisplay::drawHourEffect() {
     static uint8_t startIndex = 0;
     startIndex += 2;
-    if(NUM_LEDS <= CLOCK_LED_COUNT) return;
-    fadeToBlackBy(leds+CLOCK_LED_COUNT, NUM_LEDS-CLOCK_LED_COUNT, 20);
+    if(NUM_LEDS <= EFFECT_START_INDEX) return;
+    fadeToBlackBy(leds+EFFECT_START_INDEX, NUM_LEDS-EFFECT_START_INDEX, 20);
 
-    CRGB rainbow[NUM_LEDS-CLOCK_LED_COUNT];
-    fill_rainbow(rainbow, NUM_LEDS-CLOCK_LED_COUNT, startIndex, (NUM_LEDS-CLOCK_LED_COUNT) ? (255/(NUM_LEDS-CLOCK_LED_COUNT)) : 255);
+    CRGB rainbow[NUM_LEDS-EFFECT_START_INDEX];
+    fill_rainbow(rainbow, NUM_LEDS-EFFECT_START_INDEX, startIndex, (NUM_LEDS-EFFECT_START_INDEX) ? (255/(NUM_LEDS-EFFECT_START_INDEX)) : 255);
 
-    for(int i = 0; i < NUM_LEDS-CLOCK_LED_COUNT; i++) {
+    for(int i = 0; i < NUM_LEDS-EFFECT_START_INDEX; i++) {
         if (random8() < 50) {
-           leds[i+CLOCK_LED_COUNT] = rainbow[i];
+           leds[i+EFFECT_START_INDEX] = rainbow[i];
         }
     }
 }
@@ -130,9 +156,9 @@ void LedDisplay::drawEffect2(int effectType) {
     static uint16_t chase = 0;
     hue++;
     chase++;
-    if(NUM_LEDS <= CLOCK_LED_COUNT) return;
-    CRGB* eleds = leds+CLOCK_LED_COUNT;
-    int elen = NUM_LEDS-CLOCK_LED_COUNT;
+    if(NUM_LEDS <= EFFECT_START_INDEX) return;
+    CRGB* eleds = leds+EFFECT_START_INDEX;
+    int elen = NUM_LEDS-EFFECT_START_INDEX;
     switch (effectType) {
         case 0: // Tắt
             fill_solid(eleds, elen, CRGB::Black);
