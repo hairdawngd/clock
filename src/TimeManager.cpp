@@ -13,11 +13,15 @@ void TimeManager::syncTime() {
     Serial.println("Syncing time with NTP...");
     long gmtOffsetSec = gmtOffsetHours * 3600;
     
-    // Xóa biến môi trường TZ cũ để tránh configTime bị ghi đè bởi cấu hình POSIX sai
-    unsetenv("TZ");
-    
     // configTime luôn có tác dụng lưu trữ config, kể cả khi chưa có WiFi kết nối
     configTime(gmtOffsetSec, DAYLIGHT_OFFSET_SEC, NTP_SERVER);
+    
+    // POSIX TZ đảo dấu so với GMT: GMT+7 => "UTC-7". setenv đảm bảo getLocalTime áp đúng offset
+    // kể cả trên core không tự set TZ khi dùng configTime(offset).
+    char tzBuf[24];
+    snprintf(tzBuf, sizeof(tzBuf), "UTC%+ld", -(gmtOffsetSec / 3600));
+    setenv("TZ", tzBuf, 1);
+    tzset();
     
     struct tm timeinfo;
     if(getLocalTime(&timeinfo, 2000)) {

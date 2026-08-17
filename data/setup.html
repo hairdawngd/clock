@@ -19,6 +19,8 @@
       <input id="cmin" type="color" name="cmin" value="#ffffff">
       <label for="csec">Màu Giây:</label>
       <input id="csec" type="color" name="csec" value="#ffffff">
+      <label for="cmark">Màu mốc 12/3/6/9:</label>
+      <input id="cmark" type="color" name="cmark" value="#000000">
 
       <label for="minute_effect">Thời gian hiệu ứng phút (ms):</label>
       <input id="minute_effect" type="number" name="minute_effect" min="1000" max="10000" step="1000" value="2000">
@@ -28,18 +30,16 @@
 
       <hr style="margin:20px 0; border:1px solid #333;">
       <h3>Độ sáng LED</h3>
-      <label for="brightness_led1">Độ sáng LED 1:</label>
-      <input id="brightness_led1" type="range" name="brightness_led1" min="0" max="255" value="255">
-      <span id="brightness_led1_value">255</span>
+      <label for="brightness">Độ sáng LED:</label>
+      <input id="brightness" type="range" name="brightness" min="0" max="255" value="255">
+      <span id="brightness_value">255</span>
 
-      <label for="brightness_led2">Độ sáng LED 2:</label>
-      <input id="brightness_led2" type="range" name="brightness_led2" min="0" max="255" value="255">
-      <span id="brightness_led2_value">255</span>
 
       <hr style="margin:20px 0; border:1px solid #333;">
-      <h3>Hiệu ứng LED 2</h3>
-      <label for="eff_n2">Hiệu ứng Bình thường:</label>
-      <select id="eff_n2" name="eff_n2">
+      <h3>Hiệu ứng vùng LED sau đồng hồ</h3>
+
+      <label for="eff_normal">Hiệu ứng bình thường:</label>
+      <select id="eff_normal" name="eff_normal">
         <option value="0">Tắt</option>
         <option value="1">Cầu vồng</option>
         <option value="2">Sao băng</option>
@@ -51,8 +51,8 @@
         <option value="8">Lấp lánh</option>
       </select>
 
-      <label for="eff_m2">Hiệu ứng chuyển Phút:</label>
-      <select id="eff_m2" name="eff_m2">
+      <label for="eff_minute">Hiệu ứng chuyển phút:</label>
+      <select id="eff_minute" name="eff_minute">
         <option value="0">Tắt</option>
         <option value="1">Cầu vồng</option>
         <option value="2">Sao băng</option>
@@ -64,8 +64,8 @@
         <option value="8">Lấp lánh</option>
       </select>
 
-      <label for="eff_h2">Hiệu ứng chuyển Giờ:</label>
-      <select id="eff_h2" name="eff_h2">
+      <label for="eff_hour">Hiệu ứng chuyển giờ:</label>
+      <select id="eff_hour" name="eff_hour">
         <option value="0">Tắt</option>
         <option value="1">Cầu vồng</option>
         <option value="2">Sao băng</option>

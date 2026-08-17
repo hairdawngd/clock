@@ -2,8 +2,7 @@
 #include "Settings.h"
 
 void LedDisplay::init() {
-    FastLED.addLeds<LED_TYPE, LED_PIN_1, COLOR_ORDER>(leds, NUM_LEDS_1).setCorrection(TypicalLEDStrip);
-    FastLED.addLeds<LED_TYPE, LED_PIN_2, COLOR_ORDER>(leds2, NUM_LEDS_2).setCorrection(TypicalLEDStrip);
+    FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
     FastLED.setBrightness(255);
     FastLED.clear();
     FastLED.show();
@@ -15,11 +14,16 @@ void LedDisplay::updateColorLive(uint32_t cHour, uint32_t cMin, uint32_t cSec) {
     colorSecond = cSec;
 }
 
+static int mapClockValueToLed(int value) {
+    value %= CLOCK_LED_COUNT;
+    if (value < 0) value += CLOCK_LED_COUNT;
+    return value;
+}
+
 int LedDisplay::mapHourToLed(int h) {
-    // 12 hour format (0-11)
     int hour12 = h % 12;
-    // Map 0-11 to 0-59 (each hour is 5 LEDs apart)
-    return (hour12 * 5) % NUM_LEDS_1;
+    if (hour12 < 0) hour12 += 12;
+    return mapClockValueToLed(hour12 * 5);
 }
 
 void LedDisplay::triggerEffect(EffectState state) {
@@ -66,156 +70,121 @@ void LedDisplay::update(int hour, int minute, int second) {
             break;
     }
 
-    nscale8_video(leds, NUM_LEDS_1, constrain(brightnessLed1, 0, 255));
-    nscale8_video(leds2, NUM_LEDS_2, constrain(brightnessLed2, 0, 255));
+    nscale8_video(leds, NUM_LEDS, constrain(brightness, 0, 255));
     FastLED.show();
 }
 
-// ================ Effect Drawing Functions by led strip 1=====================
 void LedDisplay::drawNormalTime(int h, int m, int s) {
-    // Clear and draw background markings
-    for (int i = 0; i < NUM_LEDS_1; i++) {
-        // Fix 4 points: 0, 15, 30, 45 (always on, maybe different color/brightness if needed)
-        if (i == 0 || i == 15 || i == 30 || i == 45) {
-            leds[i] = CRGB(0x20, 0x20, 0x20); // Slightly brighter for main marks
-        } else {
-            leds[i] = CRGB::Black;
-        }
+    m = mapClockValueToLed(m);
+    s = mapClockValueToLed(s);
+
+    for (int i = 0; i < CLOCK_LED_COUNT && i < NUM_LEDS; i++) {
+        leds[i] = CRGB::Black;
     }
 
-    // Draw Hands
-    int hourLed = mapHourToLed(h);
-    
-    // Mix colors if they overlap
-    
-    // Hour
-    leds[hourLed] = colorHour;
-    
-    // Minute
-    if (leds[m] == (CRGB)colorHour) {
-        // Overlap Hour + Minute (e.g. Yellow-ish)
-        leds[m] = CRGB(0xFF, 0xFF, 0x00); 
-    } else {
-        leds[m] = colorMinute;
+    // Fixed clock markers: 12, 3, 6, 9. Draw first so hands can overlap them.
+    const int markers[] = {0, 15, 30, 45};
+    for (int marker : markers) {
+        if (marker < NUM_LEDS) leds[marker] = colorMarker;
     }
 
-    // Second
-    if (leds[s] == (CRGB)colorHour) {
-        leds[s] = CRGB(0xFF, 0x00, 0xFF); // Hour + Sec = Magenta
-    } else if (leds[s] == (CRGB)colorMinute) {
-        leds[s] = CRGB(0x00, 0xFF, 0xFF); // Min + Sec = Cyan
-    } else if (leds[s] == CRGB(0xFF, 0xFF, 0x00)) {
-        leds[s] = CRGB(0xFF, 0xFF, 0xFF); // All three overlap = White
-    } else {
-        leds[s] = colorSecond;
-    }
+    // led[0] is physical LED 1 and clock position 12.
+    // Vẽ giờ sau cùng để kim giờ không bị giây/phút đè (giây quét mọi vị trí mỗi phút).
+    leds[s] = colorSecond;
+    leds[m] = colorMinute;
+    leds[mapHourToLed(h)] = colorHour;
 }
 
 
-// ================ Effect Drawing Functions by led strip 2=====================
 void LedDisplay::drawMinuteEffect() {
-    // Random color fade effect
-    // Generate a random target color once per effect start or smoothly transition
-    // For simplicity, fill with random fading colors
+    // Vùng effect bắt đầu từ led 60 trở đi
     static uint8_t hue = 0;
-    hue += 5; // Rotate hue fast
-    
-    fadeToBlackBy(leds, NUM_LEDS_2, 20); // Fade existing
-    
-    // Add new random sparks
+    hue += 5;
+    if(NUM_LEDS <= CLOCK_LED_COUNT) return; // không đủ led cho effect
+    fadeToBlackBy(leds + CLOCK_LED_COUNT, NUM_LEDS-CLOCK_LED_COUNT, 20);
+
     if (random8() < 120) {
-        int pos = random16(NUM_LEDS_2);
+        int pos = random16(NUM_LEDS-CLOCK_LED_COUNT) + CLOCK_LED_COUNT;
         leds[pos] += CHSV(random8(), 255, 255);
     }
 }
 
 void LedDisplay::drawHourEffect() {
-    // Rainbow fade effect
     static uint8_t startIndex = 0;
-    startIndex += 2; // Speed of rainbow rotation
-    
-    fadeToBlackBy(leds, NUM_LEDS_2, 20); // Fade existing
-    
-    // Draw rainbow on top of fading background
-    CRGB rainbow[NUM_LEDS_2];
-    fill_rainbow(rainbow, NUM_LEDS_2, startIndex, 255 / NUM_LEDS_2);
-    
-    // Blend rainbow into leds
-    for(int i = 0; i < NUM_LEDS_2; i++) {
-        // only draw some pixels to let fade show, or just draw rainbow directly but faded
+    startIndex += 2;
+    if(NUM_LEDS <= CLOCK_LED_COUNT) return;
+    fadeToBlackBy(leds+CLOCK_LED_COUNT, NUM_LEDS-CLOCK_LED_COUNT, 20);
+
+    CRGB rainbow[NUM_LEDS-CLOCK_LED_COUNT];
+    fill_rainbow(rainbow, NUM_LEDS-CLOCK_LED_COUNT, startIndex, (NUM_LEDS-CLOCK_LED_COUNT) ? (255/(NUM_LEDS-CLOCK_LED_COUNT)) : 255);
+
+    for(int i = 0; i < NUM_LEDS-CLOCK_LED_COUNT; i++) {
         if (random8() < 50) {
-           leds[i] = rainbow[i];
+           leds[i+CLOCK_LED_COUNT] = rainbow[i];
         }
     }
 }
 
 void LedDisplay::drawEffect2(int effectType) {
-    // effectType: 0=Tắt, 1=Cầu vồng, 2=Sao băng, 3=Nhịp thở, 4=Đổi màu ngẫu nhiên, 5=Chớp nháy, 6=Lửa, 7=Đuổi màu, 8=Lấp lánh
     static uint8_t hue = 0;
     static uint16_t chase = 0;
     hue++;
     chase++;
-    
+    if(NUM_LEDS <= CLOCK_LED_COUNT) return;
+    CRGB* eleds = leds+CLOCK_LED_COUNT;
+    int elen = NUM_LEDS-CLOCK_LED_COUNT;
     switch (effectType) {
         case 0: // Tắt
-            fill_solid(leds2, NUM_LEDS_2, CRGB::Black);
+            fill_solid(eleds, elen, CRGB::Black);
             break;
-            
         case 1: // Cầu vồng
-            fill_rainbow(leds2, NUM_LEDS_2, hue, 255 / NUM_LEDS_2);
+            fill_rainbow(eleds, elen, hue, elen ? (255/elen) : 255);
             break;
-            
         case 2: // Sao băng
-            fadeToBlackBy(leds2, NUM_LEDS_2, 20);
+            fadeToBlackBy(eleds, elen, 20);
             if (random8() < 120) {
-                leds2[random16(NUM_LEDS_2)] += CHSV(hue, 255, 255);
+                eleds[random16(elen)] += CHSV(hue, 255, 255);
             }
             break;
-            
         case 3: // Nhịp thở
         {
             uint8_t b = beatsin8(30, 0, 255);
-            fill_solid(leds2, NUM_LEDS_2, CHSV(hue, 255, b));
+            fill_solid(eleds, elen, CHSV(hue, 255, b));
             break;
         }
         case 4: // Đổi màu ngẫu nhiên (chớp ngẫu nhiên)
-            for(int i=0; i<NUM_LEDS_2; i++) {
-                if(random8() < 5) leds2[i] = CHSV(random8(), 255, 255);
-                else leds2[i].nscale8(250);
+            for(int i=0; i<elen; i++) {
+                if(random8() < 5) eleds[i] = CHSV(random8(), 255, 255);
+                else eleds[i].nscale8(250);
             }
             break;
-
         case 5: // Chớp nháy
             if ((millis() / 250) % 2) {
-                fill_solid(leds2, NUM_LEDS_2, CHSV(hue, 255, 255));
+                fill_solid(eleds, elen, CHSV(hue, 255, 255));
             } else {
-                fill_solid(leds2, NUM_LEDS_2, CRGB::Black);
+                fill_solid(eleds, elen, CRGB::Black);
             }
             break;
-
         case 6: // Lửa
-            for (int i = 0; i < NUM_LEDS_2; i++) {
-                leds2[i] = HeatColor(random8(80, 255));
-                leds2[i].fadeToBlackBy(random8(0, 120));
+            for (int i = 0; i < elen; i++) {
+                eleds[i] = HeatColor(random8(80, 255));
+                eleds[i].fadeToBlackBy(random8(0, 120));
             }
             break;
-
         case 7: // Đuổi màu
-            fadeToBlackBy(leds2, NUM_LEDS_2, 80);
-            leds2[chase % NUM_LEDS_2] = CHSV(hue, 255, 255);
-            leds2[(chase + NUM_LEDS_2 / 3) % NUM_LEDS_2] = CHSV(hue + 85, 255, 255);
-            leds2[(chase + (NUM_LEDS_2 * 2) / 3) % NUM_LEDS_2] = CHSV(hue + 170, 255, 255);
+            fadeToBlackBy(eleds, elen, 80);
+            eleds[chase % elen] = CHSV(hue, 255, 255);
+            eleds[(chase + elen / 3) % elen] = CHSV(hue + 85, 255, 255);
+            eleds[(chase + (elen * 2) / 3) % elen] = CHSV(hue + 170, 255, 255);
             break;
-
         case 8: // Lấp lánh
-            fadeToBlackBy(leds2, NUM_LEDS_2, 35);
+            fadeToBlackBy(eleds, elen, 35);
             if (random8() < 160) {
-                leds2[random16(NUM_LEDS_2)] += CRGB::White;
+                eleds[random16(elen)] += CRGB::White;
             }
             break;
-            
         default:
-            fill_solid(leds2, NUM_LEDS_2, CRGB::Black);
+            fill_solid(eleds, elen, CRGB::Black);
             break;
     }
 }

@@ -18,8 +18,7 @@ public:
     void updateColorLive(uint32_t cHour, uint32_t cMin, uint32_t cSec); // For real-time sync
 
 private:
-    CRGB leds[NUM_LEDS_1];
-    CRGB leds2[NUM_LEDS_2]; // LED strip 2
+    CRGB leds[NUM_LEDS];
     EffectState currentState = STATE_NORMAL;
     unsigned long effectStartTime = 0;
     
@@ -29,6 +28,7 @@ private:
     void drawNormalTime(int h, int m, int s);
     void drawMinuteEffect();
     void drawHourEffect();
+    // ponytail: effect split index 60, effect use leds+60, NUM_LEDS-60
     
     int mapHourToLed(int h);
 };

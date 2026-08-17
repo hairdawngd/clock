@@ -110,24 +110,25 @@ void handleRoot(AsyncWebServerRequest *request) {
 }
 
 void handleApiSettings(AsyncWebServerRequest *request) {
-    char hexH[8], hexM[8], hexS[8];
+    char hexH[8], hexM[8], hexS[8], hexMark[8];
     snprintf(hexH, sizeof(hexH), "#%06lx", (unsigned long)(colorHour & 0xFFFFFF));
     snprintf(hexM, sizeof(hexM), "#%06lx", (unsigned long)(colorMinute & 0xFFFFFF));
     snprintf(hexS, sizeof(hexS), "#%06lx", (unsigned long)(colorSecond & 0xFFFFFF));
+    snprintf(hexMark, sizeof(hexMark), "#%06lx", (unsigned long)(colorMarker & 0xFFFFFF));
     
     JsonDocument doc;
     doc["chour"] = hexH;
     doc["cmin"] = hexM;
     doc["csec"] = hexS;
+    doc["cmark"] = hexMark;
     doc["minute_effect"] = minuteEffectDuration;
     doc["hour_effect"] = hourEffectDuration;
     doc["gmt_offset"] = gmtOffsetHours;
     
-    doc["eff_n2"] = effectNormal2;
-    doc["eff_m2"] = effectMinute2;
-    doc["eff_h2"] = effectHour2;
-    doc["brightness_led1"] = brightnessLed1;
-    doc["brightness_led2"] = brightnessLed2;
+    doc["eff_normal"] = effectNormal2;
+    doc["eff_minute"] = effectMinute2;
+    doc["eff_hour"] = effectHour2;
+    doc["brightness"] = brightness;
 
     String response;
     serializeJson(doc, response);
@@ -178,6 +179,11 @@ void handleTestColor(AsyncWebServerRequest *request) {
             strtoul(vS.c_str(), nullptr, 16)
         );
     }
+    if (request->hasParam("cmark", true)) {
+        String val = request->getParam("cmark", true)->value();
+        if (val.startsWith("#")) val = val.substring(1);
+        colorMarker = strtoul(val.c_str(), nullptr, 16);
+    }
     request->send(200, "text/plain", "ok");
 }
 void handleSave(AsyncWebServerRequest *request) {
@@ -196,15 +202,19 @@ void handleSave(AsyncWebServerRequest *request) {
         if (val.startsWith("#")) val = val.substring(1);
         colorSecond = strtoul(val.c_str(), nullptr, 16);
     }
+    if (request->hasParam("cmark", true)) {
+        String val = request->getParam("cmark", true)->value();
+        if (val.startsWith("#")) val = val.substring(1);
+        colorMarker = strtoul(val.c_str(), nullptr, 16);
+    }
     if (request->hasParam("minute_effect", true)) minuteEffectDuration = request->getParam("minute_effect", true)->value().toInt();
     if (request->hasParam("hour_effect", true)) hourEffectDuration = request->getParam("hour_effect", true)->value().toInt();
     if (request->hasParam("gmt_offset", true)) gmtOffsetHours = request->getParam("gmt_offset", true)->value().toInt();
     
-    if (request->hasParam("eff_n2", true)) effectNormal2 = request->getParam("eff_n2", true)->value().toInt();
-    if (request->hasParam("eff_m2", true)) effectMinute2 = request->getParam("eff_m2", true)->value().toInt();
-    if (request->hasParam("eff_h2", true)) effectHour2 = request->getParam("eff_h2", true)->value().toInt();
-    if (request->hasParam("brightness_led1", true)) brightnessLed1 = constrain(request->getParam("brightness_led1", true)->value().toInt(), 0, 255);
-    if (request->hasParam("brightness_led2", true)) brightnessLed2 = constrain(request->getParam("brightness_led2", true)->value().toInt(), 0, 255);
+    if (request->hasParam("eff_normal", true)) effectNormal2 = request->getParam("eff_normal", true)->value().toInt();
+    if (request->hasParam("eff_minute", true)) effectMinute2 = request->getParam("eff_minute", true)->value().toInt();
+    if (request->hasParam("eff_hour", true)) effectHour2 = request->getParam("eff_hour", true)->value().toInt();
+    if (request->hasParam("brightness", true)) brightness = constrain(request->getParam("brightness", true)->value().toInt(), 0, 255);
     
     saveSettings();
     display.updateColorLive(colorHour, colorMinute, colorSecond);
