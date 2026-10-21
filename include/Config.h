@@ -6,7 +6,7 @@
 #define DAYLIGHT_OFFSET_SEC 0
 
 // LED Configuration
-#define LED_PIN 2
+#define LED_PIN 3
 #define NUM_LEDS 70
 #define CLOCK_LED_COUNT 60 
 #define EFFECT_START_INDEX 61

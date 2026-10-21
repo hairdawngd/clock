@@ -16,6 +16,7 @@ public:
     void triggerEffect(EffectState state);
     void drawEffect2(int effectType);
     void updateColorLive(uint32_t cHour, uint32_t cMin, uint32_t cSec); // For real-time sync
+    void bootRainbow(unsigned long durationMs = 5000);
 
 private:
     CRGB leds[NUM_LEDS];

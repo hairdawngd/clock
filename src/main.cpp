@@ -25,6 +25,7 @@ void setup() {
 
     loadSettings();
     display.init();
+    display.bootRainbow(5000); 
 
     if (wifiSSID.length() > 0) {
         WiFi.mode(WIFI_STA);
