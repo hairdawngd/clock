@@ -28,6 +28,13 @@
       <label for="hour_effect">Thời gian hiệu ứng giờ (ms):</label>
       <input id="hour_effect" type="number" name="hour_effect" min="1000" max="10000" step="1000" value="3000">
 
+      <label for="effect_start">Bắt đầu hiệu ứng phút/giờ:</label>
+      <input id="effect_start" type="time" name="effect_start" value="00:00" required>
+
+      <label for="effect_end">Kết thúc hiệu ứng phút/giờ:</label>
+      <input id="effect_end" type="time" name="effect_end" value="23:59" required>
+      <small>Hiệu ứng hoạt động trong khung giờ đã chọn, kể cả khi khung giờ qua nửa đêm.</small>
+
       <hr style="margin:20px 0; border:1px solid #333;">
       <h3>Độ sáng LED</h3>
       <label for="brightness">Độ sáng LED:</label>
@@ -36,20 +43,7 @@
 
 
       <hr style="margin:20px 0; border:1px solid #333;">
-      <h3>Hiệu ứng vùng LED sau đồng hồ</h3>
-
-      <label for="eff_normal">Hiệu ứng bình thường:</label>
-      <select id="eff_normal" name="eff_normal">
-        <option value="0">Tắt</option>
-        <option value="1">Cầu vồng</option>
-        <option value="2">Sao băng</option>
-        <option value="3">Nhịp thở</option>
-        <option value="4">Đổi màu ngẫu nhiên</option>
-        <option value="5">Chớp nháy</option>
-        <option value="6">Lửa</option>
-        <option value="7">Đuổi màu</option>
-        <option value="8">Lấp lánh</option>
-      </select>
+      <h3>Hiệu ứng khi chuyển phút/giờ</h3>
 
       <label for="eff_minute">Hiệu ứng chuyển phút:</label>
       <select id="eff_minute" name="eff_minute">
@@ -62,6 +56,7 @@
         <option value="6">Lửa</option>
         <option value="7">Đuổi màu</option>
         <option value="8">Lấp lánh</option>
+        <option value="9">Cầu vồng quét và fade</option>
       </select>
 
       <label for="eff_hour">Hiệu ứng chuyển giờ:</label>
@@ -75,6 +70,7 @@
         <option value="6">Lửa</option>
         <option value="7">Đuổi màu</option>
         <option value="8">Lấp lánh</option>
+        <option value="9">Cầu vồng quét và fade</option>
       </select>
 
       <hr style="margin:20px 0; border:1px solid #333;">

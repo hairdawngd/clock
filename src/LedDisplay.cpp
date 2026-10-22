@@ -43,39 +43,64 @@ void LedDisplay::triggerEffect(EffectState state) {
 
 void LedDisplay::update(int hour, int minute, int second) {
     unsigned long currentMillis = millis();
-    const unsigned long EFFECT_MS = 5000;   // tròn phút / tròn giờ: 5 giây
 
     // Check for transitions
     if (lastMinute != -1 && minute != lastMinute) {
+        EffectState nextState;
         if (hour != lastHour && lastHour != -1) {
-            currentState = STATE_HOUR_EFFECT;
+            nextState = STATE_HOUR_EFFECT;
         } else {
-            currentState = STATE_MINUTE_EFFECT;
+            nextState = STATE_MINUTE_EFFECT;
         }
-        effectStartTime = currentMillis;
-        FastLED.clear();                    // xóa hình cũ trước khi chạy effect
+
+        int selectedEffect = nextState == STATE_HOUR_EFFECT ? effectHour2 : effectMinute2;
+        if (selectedEffect != 0 && isEffectWindowActive(hour, minute)) {
+            currentState = nextState;
+            effectStartTime = currentMillis;
+            FastLED.clear();
+        } else {
+            currentState = STATE_NORMAL;
+        }
     }
 
     lastMinute = minute;
     lastHour = hour;
 
     // Check effect timeout
+    unsigned long effectDuration = currentState == STATE_MINUTE_EFFECT
+        ? minuteEffectDuration
+        : hourEffectDuration;
+    int selectedEffect = currentState == STATE_MINUTE_EFFECT
+        ? effectMinute2
+        : effectHour2;
     if ((currentState == STATE_MINUTE_EFFECT || currentState == STATE_HOUR_EFFECT) &&
-        (currentMillis - effectStartTime >= EFFECT_MS)) {
+        selectedEffect == 0) {
         currentState = STATE_NORMAL;
+        FastLED.clear();
+    }
+    if ((currentState == STATE_MINUTE_EFFECT || currentState == STATE_HOUR_EFFECT) &&
+        (currentMillis - effectStartTime >= effectDuration)) {
+        currentState = STATE_NORMAL;
+        FastLED.clear();
+    }
+    if ((currentState == STATE_MINUTE_EFFECT || currentState == STATE_HOUR_EFFECT) &&
+        !isEffectWindowActive(hour, minute)) {
+        currentState = STATE_NORMAL;
+        FastLED.clear();
     }
 
     // Draw based on state
     switch (currentState) {
         case STATE_NORMAL:
             drawNormalTime(hour, minute, second);
-            drawEffect2(effectNormal2);
             break;
         case STATE_MINUTE_EFFECT:
-            drawMinuteEffect();     // chạy toàn bộ LED
+            drawTransitionEffect(effectMinute2, currentMillis - effectStartTime,
+                                 minuteEffectDuration, hour, minute, second);
             break;
         case STATE_HOUR_EFFECT:
-            drawHourEffect();       // chạy toàn bộ LED
+            drawTransitionEffect(effectHour2, currentMillis - effectStartTime,
+                                 hourEffectDuration, hour, minute, second);
             break;
     }
 
@@ -124,102 +149,89 @@ void LedDisplay::drawNormalTime(int h, int m, int s) {
 }
 
 
-void LedDisplay::drawMinuteEffect() {
-    const unsigned long SWEEP_MS = 2000;    // giai đoạn 1: cầu vồng quét 0 -> cuối
-    const unsigned long TOTAL_MS = 5000;   // tổng thời gian hiệu ứng
-
-    unsigned long t = millis() - effectStartTime;
-
-    if (t < SWEEP_MS) {
-        // Giai đoạn 1: cầu vồng chạy thật nhanh từ LED 0 đến LED cuối
-        int head = (int)((t * NUM_LEDS) / SWEEP_MS);
-        if (head > NUM_LEDS - 1) head = NUM_LEDS - 1;
-
-        for (int i = 0; i < NUM_LEDS; i++) {
-            if (i <= head) {
-                leds[i] = CHSV((i * 255) / NUM_LEDS, 255, 255);
-            } else {
-                leds[i] = CRGB::Black;
-            }
-        }
-    } else {
-        // Giai đoạn 2: "bùm" trắng toàn dải rồi fade tối dần
-        unsigned long fadeMs = TOTAL_MS - SWEEP_MS;
-        unsigned long ft = t - SWEEP_MS;
-        if (ft > fadeMs) ft = fadeMs;
-
-        uint8_t v = 255 - (uint8_t)((ft * 255) / fadeMs);
-        v = scale8(v, v);   // fade theo đường cong, nhìn mượt hơn mắt người
-        fill_solid(leds, NUM_LEDS, CRGB(v, v, v));
-    }
-}
-
-void LedDisplay::drawHourEffect() {
-    static uint8_t startHue = 0;
-    startHue += 4;
-    fill_rainbow(leds, NUM_LEDS, startHue, 255 / NUM_LEDS + 1);
-}
-
-void LedDisplay::drawEffect2(int effectType) {
+void LedDisplay::drawTransitionEffect(int effectType, unsigned long elapsed, unsigned long duration,
+                                      int hour, int minute, int second) {
     static uint8_t hue = 0;
     static uint16_t chase = 0;
     hue++;
     chase++;
-    if(NUM_LEDS <= EFFECT_START_INDEX) return;
-    CRGB* eleds = leds+EFFECT_START_INDEX;
-    int elen = NUM_LEDS-EFFECT_START_INDEX;
+
     switch (effectType) {
-        case 0: // Tắt
-            fill_solid(eleds, elen, CRGB::Black);
+        case 0:
+            fill_solid(leds, NUM_LEDS, CRGB::Black);
+            drawNormalTime(hour, minute, second);
             break;
-        case 1: // Cầu vồng
-            fill_rainbow(eleds, elen, hue, elen ? (255/elen) : 255);
+        case 1:
+            fill_rainbow(leds, NUM_LEDS, hue, 255 / NUM_LEDS + 1);
             break;
-        case 2: // Sao băng
-            fadeToBlackBy(eleds, elen, 20);
+        case 2:
+            fadeToBlackBy(leds, NUM_LEDS, 20);
             if (random8() < 120) {
-                eleds[random16(elen)] += CHSV(hue, 255, 255);
+                leds[random16(NUM_LEDS)] += CHSV(hue, 255, 255);
             }
             break;
-        case 3: // Nhịp thở
-        {
-            uint8_t b = beatsin8(30, 0, 255);
-            fill_solid(eleds, elen, CHSV(hue, 255, b));
+        case 3: {
+            uint8_t brightnessValue = beatsin8(30, 0, 255);
+            fill_solid(leds, NUM_LEDS, CHSV(hue, 255, brightnessValue));
             break;
         }
-        case 4: // Đổi màu ngẫu nhiên (chớp ngẫu nhiên)
-            for(int i=0; i<elen; i++) {
-                if(random8() < 5) eleds[i] = CHSV(random8(), 255, 255);
-                else eleds[i].nscale8(250);
+        case 4:
+            for (int i = 0; i < NUM_LEDS; i++) {
+                if (random8() < 5) leds[i] = CHSV(random8(), 255, 255);
+                else leds[i].nscale8(250);
             }
             break;
-        case 5: // Chớp nháy
+        case 5:
             if ((millis() / 250) % 2) {
-                fill_solid(eleds, elen, CHSV(hue, 255, 255));
+                fill_solid(leds, NUM_LEDS, CHSV(hue, 255, 255));
             } else {
-                fill_solid(eleds, elen, CRGB::Black);
+                fill_solid(leds, NUM_LEDS, CRGB::Black);
             }
             break;
-        case 6: // Lửa
-            for (int i = 0; i < elen; i++) {
-                eleds[i] = HeatColor(random8(80, 255));
-                eleds[i].fadeToBlackBy(random8(0, 120));
+        case 6:
+            for (int i = 0; i < NUM_LEDS; i++) {
+                leds[i] = HeatColor(random8(80, 255));
+                leds[i].fadeToBlackBy(random8(0, 120));
             }
             break;
-        case 7: // Đuổi màu
-            fadeToBlackBy(eleds, elen, 80);
-            eleds[chase % elen] = CHSV(hue, 255, 255);
-            eleds[(chase + elen / 3) % elen] = CHSV(hue + 85, 255, 255);
-            eleds[(chase + (elen * 2) / 3) % elen] = CHSV(hue + 170, 255, 255);
+        case 7:
+            fadeToBlackBy(leds, NUM_LEDS, 80);
+            leds[chase % NUM_LEDS] = CHSV(hue, 255, 255);
+            leds[(chase + NUM_LEDS / 3) % NUM_LEDS] = CHSV(hue + 85, 255, 255);
+            leds[(chase + (NUM_LEDS * 2) / 3) % NUM_LEDS] = CHSV(hue + 170, 255, 255);
             break;
-        case 8: // Lấp lánh
-            fadeToBlackBy(eleds, elen, 35);
+        case 8:
+            fadeToBlackBy(leds, NUM_LEDS, 35);
             if (random8() < 160) {
-                eleds[random16(elen)] += CRGB::White;
+                leds[random16(NUM_LEDS)] += CRGB::White;
             }
             break;
+        case 9: {
+            unsigned long sweepMs = duration * 2 / 5;
+            if (sweepMs == 0) sweepMs = 1;
+            if (elapsed < sweepMs) {
+                int head = (int)((elapsed * NUM_LEDS) / sweepMs);
+                if (head >= NUM_LEDS) head = NUM_LEDS - 1;
+                for (int i = 0; i < NUM_LEDS; i++) {
+                    if (i <= head) {
+                        leds[i] = CHSV((i * 255) / NUM_LEDS, 255, 255);
+                    } else {
+                        leds[i] = CRGB::Black;
+                    }
+                }
+            } else {
+                unsigned long fadeMs = duration > sweepMs ? duration - sweepMs : 1;
+                unsigned long fadeTime = elapsed - sweepMs;
+                if (fadeTime > fadeMs) fadeTime = fadeMs;
+                uint8_t value = 255 - (uint8_t)((fadeTime * 255) / fadeMs);
+                value = scale8(value, value);
+                fill_solid(leds, NUM_LEDS, CRGB(value, value, value));
+            }
+            break;
+        }
         default:
-            fill_solid(eleds, elen, CRGB::Black);
+            fill_solid(leds, NUM_LEDS, CRGB::Black);
+            drawNormalTime(hour, minute, second);
             break;
     }
 }
@@ -229,7 +241,6 @@ void LedDisplay::bootRainbow(unsigned long durationMs) {
     unsigned long start = millis();
 
     while (millis() - start < durationMs) {
-        // Rainbow chạy trên TOÀN BỘ dải LED (cả vòng đồng hồ lẫn vùng effect)
         fill_rainbow(leds, NUM_LEDS, hue, 255 / NUM_LEDS + 1);
         hue += 3;
 

@@ -14,7 +14,6 @@ public:
     void init();
     void update(int hour, int minute, int second);
     void triggerEffect(EffectState state);
-    void drawEffect2(int effectType);
     void updateColorLive(uint32_t cHour, uint32_t cMin, uint32_t cSec); // For real-time sync
     void bootRainbow(unsigned long durationMs = 5000);
 
@@ -27,12 +26,10 @@ private:
     int lastHour = -1;
 
     void drawNormalTime(int h, int m, int s);
-    void drawMinuteEffect();
-    void drawHourEffect();
+    void drawTransitionEffect(int effectType, unsigned long elapsed, unsigned long duration,
+                              int hour, int minute, int second);
     int mapClockValueToLed(int value);
     void setClockLed(int idx, const CRGB &color);
-    // ponytail: effect split index 60, effect use leds+60, NUM_LEDS-60
-    
     int mapHourToLed(int h);
     void preserveClockEdge(int hour, int minute, int second);
 };

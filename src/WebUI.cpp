@@ -14,6 +14,29 @@ extern LedDisplay display;
 
 AsyncWebServer server(80);
 
+static bool parseEffectTime(const String &value, int &minutes) {
+  if (value.length() != 5 || value[2] != ':' ||
+      value[0] < '0' || value[0] > '9' ||
+      value[1] < '0' || value[1] > '9' ||
+      value[3] < '0' || value[3] > '9' ||
+      value[4] < '0' || value[4] > '9') {
+    return false;
+  }
+
+  int hour = (value[0] - '0') * 10 + value[1] - '0';
+  int minute = (value[3] - '0') * 10 + value[4] - '0';
+  if (hour >= 24 || minute >= 60) return false;
+
+  minutes = hour * 60 + minute;
+  return true;
+}
+
+static String formatEffectTime(int minutes) {
+  char value[6];
+  snprintf(value, sizeof(value), "%02d:%02d", minutes / 60, minutes % 60);
+  return String(value);
+}
+
 void handleScan(AsyncWebServerRequest *request) {
   int n = WiFi.scanComplete();
   JsonDocument doc;
@@ -123,9 +146,10 @@ void handleApiSettings(AsyncWebServerRequest *request) {
     doc["cmark"] = hexMark;
     doc["minute_effect"] = minuteEffectDuration;
     doc["hour_effect"] = hourEffectDuration;
+    doc["effect_start"] = formatEffectTime(effectWindowStartMinute);
+    doc["effect_end"] = formatEffectTime(effectWindowEndMinute);
     doc["gmt_offset"] = gmtOffsetHours;
     
-    doc["eff_normal"] = effectNormal2;
     doc["eff_minute"] = effectMinute2;
     doc["eff_hour"] = effectHour2;
     doc["brightness"] = brightness;
@@ -187,6 +211,23 @@ void handleTestColor(AsyncWebServerRequest *request) {
     request->send(200, "text/plain", "ok");
 }
 void handleSave(AsyncWebServerRequest *request) {
+    int configuredStart = effectWindowStartMinute;
+    int configuredEnd = effectWindowEndMinute;
+    if ((request->hasParam("effect_start", true) &&
+         !parseEffectTime(request->getParam("effect_start", true)->value(), configuredStart)) ||
+        (request->hasParam("effect_end", true) &&
+         !parseEffectTime(request->getParam("effect_end", true)->value(), configuredEnd))) {
+        JsonDocument doc;
+        doc["error"] = "Khung giờ hiệu ứng phải đúng định dạng HH:mm (00:00 đến 23:59).";
+        String response;
+        serializeJson(doc, response);
+        request->send(400, "application/json", response);
+        return;
+    }
+
+    effectWindowStartMinute = configuredStart;
+    effectWindowEndMinute = configuredEnd;
+
     if (request->hasParam("chour", true)) {
         String val = request->getParam("chour", true)->value();
         if (val.startsWith("#")) val = val.substring(1);
@@ -211,7 +252,6 @@ void handleSave(AsyncWebServerRequest *request) {
     if (request->hasParam("hour_effect", true)) hourEffectDuration = request->getParam("hour_effect", true)->value().toInt();
     if (request->hasParam("gmt_offset", true)) gmtOffsetHours = request->getParam("gmt_offset", true)->value().toInt();
     
-    if (request->hasParam("eff_normal", true)) effectNormal2 = request->getParam("eff_normal", true)->value().toInt();
     if (request->hasParam("eff_minute", true)) effectMinute2 = request->getParam("eff_minute", true)->value().toInt();
     if (request->hasParam("eff_hour", true)) effectHour2 = request->getParam("eff_hour", true)->value().toInt();
     if (request->hasParam("brightness", true)) brightness = constrain(request->getParam("brightness", true)->value().toInt(), 0, 255);

@@ -9,8 +9,9 @@ uint32_t colorMarker = 0x000000;
 uint32_t minuteEffectDuration = MINUTE_EFFECT_DURATION_DEFAULT;
 uint32_t hourEffectDuration = HOUR_EFFECT_DURATION_DEFAULT;
 int gmtOffsetHours = 7;
+int effectWindowStartMinute = 0;
+int effectWindowEndMinute = 23 * 60 + 59;
 
-int effectNormal2 = 1;
 int effectMinute2 = 1;
 int effectHour2 = 2;
 int brightness = BRIGHTNESS;
@@ -31,7 +32,14 @@ void loadSettings() {
     minuteEffectDuration = prefs.getUInt("e_min", MINUTE_EFFECT_DURATION_DEFAULT);
     hourEffectDuration = prefs.getUInt("e_hour", HOUR_EFFECT_DURATION_DEFAULT);
     gmtOffsetHours = prefs.getInt("gmt", 7);
-    effectNormal2 = prefs.getInt("eff_normal", 1);
+    effectWindowStartMinute = prefs.getInt("fx_start", 0);
+    effectWindowEndMinute = prefs.getInt("fx_end", 23 * 60 + 59);
+    if (effectWindowStartMinute < 0 || effectWindowStartMinute >= 24 * 60) {
+        effectWindowStartMinute = 0;
+    }
+    if (effectWindowEndMinute < 0 || effectWindowEndMinute >= 24 * 60) {
+        effectWindowEndMinute = 23 * 60 + 59;
+    }
     effectMinute2 = prefs.getInt("eff_minute", 1);
     effectHour2 = prefs.getInt("eff_hour", 2);
     brightness = prefs.getInt("brightness", BRIGHTNESS);
@@ -49,11 +57,25 @@ void saveSettings() {
     prefs.putUInt("e_min", minuteEffectDuration);
     prefs.putUInt("e_hour", hourEffectDuration);
     prefs.putInt("gmt", gmtOffsetHours);
-    prefs.putInt("eff_normal", effectNormal2);
+    prefs.putInt("fx_start", effectWindowStartMinute);
+    prefs.putInt("fx_end", effectWindowEndMinute);
     prefs.putInt("eff_minute", effectMinute2);
     prefs.putInt("eff_hour", effectHour2);
     prefs.putInt("brightness", brightness);
     prefs.putString("w_ssid", wifiSSID);
     prefs.putString("w_pass", wifiPass);
     prefs.end();
+}
+
+bool isEffectWindowActive(int hour, int minute) {
+    if (hour < 0 || hour >= 24 || minute < 0 || minute >= 60) return false;
+
+    int currentMinute = hour * 60 + minute;
+    if (effectWindowStartMinute <= effectWindowEndMinute) {
+        return currentMinute >= effectWindowStartMinute &&
+               currentMinute <= effectWindowEndMinute;
+    }
+
+    return currentMinute >= effectWindowStartMinute ||
+           currentMinute <= effectWindowEndMinute;
 }

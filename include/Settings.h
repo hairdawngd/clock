@@ -8,8 +8,9 @@ extern uint32_t colorMarker;
 extern uint32_t minuteEffectDuration;
 extern uint32_t hourEffectDuration;
 extern int gmtOffsetHours;
+extern int effectWindowStartMinute;
+extern int effectWindowEndMinute;
 
-extern int effectNormal2;
 extern int effectMinute2;
 extern int effectHour2;
 extern int brightness;
@@ -19,3 +20,4 @@ extern String wifiPass;
 
 void loadSettings();
 void saveSettings();
+bool isEffectWindowActive(int hour, int minute);
