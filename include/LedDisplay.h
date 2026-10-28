@@ -2,6 +2,7 @@
 
 #include <FastLED.h>
 #include "Config.h"
+#include <FastLED.h>
 
 enum EffectState {
     STATE_NORMAL,
@@ -16,9 +17,11 @@ public:
     void triggerEffect(EffectState state);
     void updateColorLive(uint32_t cHour, uint32_t cMin, uint32_t cSec); // For real-time sync
     void bootRainbow(unsigned long durationMs = 5000);
+    int ledCount = NUM_LEDS;
 
 private:
-    CRGB leds[NUM_LEDS];
+    CRGB leds[MAX_RUNTIME_LEDS];
+    CLEDController *controller = nullptr;
     EffectState currentState = STATE_NORMAL;
     unsigned long effectStartTime = 0;
     
@@ -32,4 +35,6 @@ private:
     void setClockLed(int idx, const CRGB &color);
     int mapHourToLed(int h);
     void preserveClockEdge(int hour, int minute, int second);
+    uint8_t effectHue = 0;
+    uint16_t effectChase = 0;
 };

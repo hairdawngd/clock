@@ -13,6 +13,7 @@
     <div id="currentTime"></div>
     <a href="/connectwifi" class="wifi-btn">Kết nối WiFi</a>
     <form id="setupForm">
+      <label><input id="display_enabled" type="checkbox" name="display_enabled" value="1"> Bật LedDisplay</label>
       <label for="chour">Màu Giờ:</label>
       <input id="chour" type="color" name="chour" value="#ffffff">
       <label for="cmin">Màu Phút:</label>
@@ -74,12 +75,62 @@
       </select>
 
       <hr style="margin:20px 0; border:1px solid #333;">
+      <h3>LedBackground (GPIO4)</h3>
+      <label><input id="background_enabled" type="checkbox" name="background_enabled" value="1"> Bật LedBackground</label>
+      <label for="background_color">Màu nền:</label>
+      <input id="background_color" type="color" name="background_color" value="#050505">
+      <label for="background_effect">Hiệu ứng LED nền:</label>
+      <select id="background_effect" name="background_effect">
+        <option value="0">Màu tĩnh</option>
+        <option value="1">Cầu vồng</option><option value="2">Sao băng</option>
+        <option value="3">Nhịp thở</option><option value="4">Đổi màu ngẫu nhiên</option>
+        <option value="5">Chớp nháy</option><option value="6">Lửa</option>
+        <option value="7">Đuổi màu</option><option value="8">Lấp lánh</option>
+        <option value="9">Cầu vồng quét và fade</option>
+      </select>
+      <label for="background_effect_duration">Thời gian hiệu ứng LED nền (ms):</label>
+      <input id="background_effect_duration" type="number" name="background_effect_duration" min="1000" max="60000" step="1000" value="5000">
+      <label for="background_start">Bắt đầu LED nền:</label>
+      <input id="background_start" type="time" name="background_start" value="00:00" required>
+      <label for="background_end">Kết thúc LED nền:</label>
+      <input id="background_end" type="time" name="background_end" value="23:59" required>
+
+      <hr style="margin:20px 0; border:1px solid #333;">
 
       <label for="gmt_offset">Múi giờ GMT:</label>
       <input id="gmt_offset" type="number" name="gmt_offset" min="-12" max="14" step="1" value="7">
+      <label for="ota_password">Mật khẩu OTA (tối thiểu 8 ký tự, bỏ trống để giữ nguyên):</label>
+      <input id="ota_password" type="password" name="ota_password" minlength="8">
+
+      <hr style="margin:20px 0; border:1px solid #333;">
+      <h3>Cấu hình chân và số LED</h3>
+      <label for="display_pin">GPIO LedDisplay:</label><input id="display_pin" type="number" name="display_pin" min="0" max="10">
+      <label for="display_count">Số LED LedDisplay:</label><input id="display_count" type="number" name="display_count" min="1" max="256">
+      <label for="background_pin">GPIO LedBackground:</label><input id="background_pin" type="number" name="background_pin" min="0" max="10">
+      <label for="background_count">Số LED LedBackground:</label><input id="background_count" type="number" name="background_count" min="1" max="256">
+
+      <h3>MQTT / Home Assistant</h3>
+      <label><input id="mqtt_enabled" type="checkbox" name="mqtt_enabled" value="1"> Bật MQTT</label>
+      <label><input id="mqtt_discovery" type="checkbox" name="mqtt_discovery" value="1"> Home Assistant MQTT Discovery</label>
+      <label for="mqtt_host">MQTT host:</label><input id="mqtt_host" type="text" name="mqtt_host">
+      <label for="mqtt_port">MQTT port:</label><input id="mqtt_port" type="number" name="mqtt_port" min="1" max="65535">
+      <label for="mqtt_user">MQTT user:</label><input id="mqtt_user" type="text" name="mqtt_user">
+      <label for="mqtt_pass">MQTT password (bỏ trống để giữ nguyên):</label><input id="mqtt_pass" type="password" name="mqtt_pass">
+      <label for="mqtt_topic">MQTT topic:</label><input id="mqtt_topic" type="text" name="mqtt_topic">
 
       <button type="submit" id="btnSave">Lưu cài đặt</button>
     </form>
+    <hr style="margin:20px 0; border:1px solid #333;">
+    <h3>Cập nhật firmware OTA</h3>
+    <form id="otaForm" action="/update" method="POST" enctype="multipart/form-data">
+      <label>Tài khoản: admin</label>
+      <input type="password" name="password" placeholder="Mật khẩu OTA">
+      <input type="file" name="firmware" accept=".bin" required>
+      <button type="submit">Cập nhật firmware</button>
+    </form>
+    <div id="otaResult" style="margin-top: 10px; color: #40c9ff;"></div>
+    <small>Chọn đúng tên file <strong>firmware.bin</strong> hoặc <strong>spiffs.bin</strong>.
+      Server sẽ tự nhận diện loại gói OTA.</small>
     <div id="saveResult" style="margin-top: 10px; color: #40c9ff;"></div>
     
     <div class="card-footer">

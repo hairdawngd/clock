@@ -3,12 +3,15 @@
 #include "Config.h"
 #include "TimeManager.h"
 #include "LedDisplay.h"
+#include "LedBackground.h"
 #include "Settings.h"
 #include "WebUI.h"
+#include "MqttManager.h"
 #include <SPIFFS.h>
 
 TimeManager timeManager;
 LedDisplay display;
+LedBackground background;
 
 unsigned long lastDrawTime = 0;
 const int DRAW_INTERVAL = 30;
@@ -25,6 +28,7 @@ void setup() {
 
     loadSettings();
     display.init();
+    background.init();
     display.bootRainbow(5000); 
 
     if (wifiSSID.length() > 0) {
@@ -58,6 +62,7 @@ void setup() {
     }
 
     setupWebUI();
+    mqttInit();
     Serial.printf("[SERVER] Web server started. STA IP: %s, AP IP: %s\n",
                   WiFi.localIP().toString().c_str(),
                   WiFi.softAPIP().toString().c_str());
@@ -68,17 +73,20 @@ void setup() {
 void loop() {
     unsigned long currentMillis = millis();
     timeManager.update();
+    mqttUpdate();
 
     if (currentMillis - lastDrawTime >= DRAW_INTERVAL) {
         lastDrawTime = currentMillis;
 
         if (timeManager.isTimeSet()) {
+            background.update(timeManager.getHour(), timeManager.getMinute());
             display.update(
                 timeManager.getHour(),
                 timeManager.getMinute(),
                 timeManager.getSecond()
             );
         } else {
+            background.update(0, 0);
             display.update(0, 0, 0);
         }
     }
