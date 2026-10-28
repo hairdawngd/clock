@@ -7,9 +7,9 @@
 
 // LED Configuration
 #define LED_PIN 3
-#define BACKGROUND_LED_PIN 4
+#define BACKGROUND_LED_PIN 1
 #define NUM_LEDS 70
-#define NUM_BACKGROUND_LEDS 60
+#define NUM_BACKGROUND_LEDS 27
 #define MAX_RUNTIME_LEDS 256
 #define CLOCK_LED_COUNT 60 
 #define EFFECT_START_INDEX 61
@@ -30,3 +30,5 @@
 #define MQTT_PORT_DEFAULT 1883
 #define MQTT_HOST_DEFAULT "homeassistant.local"
 #define MQTT_TOPIC_DEFAULT "clock-led"
+
+
