@@ -25,20 +25,49 @@ function renderWifiList(networks) {
   container.appendChild(list);
 }
 
+let connecting = false;   // đang thử kết nối thì không cần cập nhật danh sách quét
+
 function startWifiScan() {
   const container = document.getElementById("wifiContainer");
-  if (container.textContent !== "Đang tải...") container.textContent = "Đang quét WiFi...";
   fetchWifiList().then(networks => {
-    // Nếu mảng rỗng, có thể đang quét ngầm (WIFI_SCAN_RUNNING) hoặc không có. Poll lại sau 2s.
+    // Mảng rỗng: đang quét ngầm, hoặc server đang bận thử kết nối. Poll lại sau 2s.
     if (!networks.length) {
       setTimeout(startWifiScan, 2000);
       return;
     }
-    renderWifiList(networks);
+    if (!connecting) renderWifiList(networks);
   }).catch(() => {
     container.textContent = "Lỗi quét WiFi. Đang thử lại...";
     setTimeout(startWifiScan, 2000);
   });
+}
+
+function pollStatus(result, btn, tries = 0) {
+  fetch("/connect_status")
+    .then(r => r.json())
+    .then(s => {
+      if (s.state === "connecting" && tries < 25) {
+        result.textContent = "Đang kết nối...";
+        setTimeout(() => pollStatus(result, btn, tries + 1), 1000);
+        return;
+      }
+      if (s.state === "success") {
+        result.textContent = "Kết nối thành công! IP: " + s.ip +
+          ". Thiết bị đang khởi động lại, hãy kết nối lại mạng WiFi nhà bạn.";
+        return;   // giữ nút bị khóa vì thiết bị sắp restart
+      }
+      // failed, idle hoặc quá thời gian chờ
+      connecting = false;
+      result.textContent = "Sai mật khẩu hoặc không kết nối được. Vui lòng kiểm tra và nhập lại.";
+      btn.disabled = false;
+      document.getElementById("pwdInput").focus();
+    })
+    .catch(() => {
+      // Mất kết nối tới ESP32: có thể vừa restart sau khi thành công
+      result.textContent = "Mất kết nối tới thiết bị. Nếu bạn đã nhập đúng, thiết bị có thể đang khởi động lại.";
+      btn.disabled = false;
+      connecting = false;
+    });
 }
 
 function bindWifiForm() {
@@ -48,6 +77,7 @@ function bindWifiForm() {
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     btn.disabled = true;
+    connecting = true;
     result.textContent = "Đang kết nối...";
     const body = new URLSearchParams(new FormData(form));
     try {
@@ -57,11 +87,17 @@ function bindWifiForm() {
         body
       });
       const data = await resp.json();
-      result.textContent = data.message || "Đã gửi yêu cầu kết nối...";
+      if (!resp.ok) {
+        result.textContent = data.error || "Lỗi gửi cấu hình WiFi.";
+        btn.disabled = false;
+        connecting = false;
+        return;
+      }
+      pollStatus(result, btn);
     } catch (err) {
       result.textContent = "Lỗi gửi cấu hình WiFi.";
-    } finally {
       btn.disabled = false;
+      connecting = false;
     }
   });
 }

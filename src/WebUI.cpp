@@ -14,6 +14,9 @@ extern TimeManager timeManager;
 extern LedDisplay display;
 
 AsyncWebServer server(80);
+static String pendingSSID, pendingPass;
+static volatile int connectState = 0;   // 0=idle, 1=đang kết nối, 2=thành công, 3=thất bại
+static uint32_t connectStartMs = 0;
 
 static bool parseEffectTime(const String &value, int &minutes) {
   if (value.length() != 5 || value[2] != ':' ||
@@ -48,6 +51,12 @@ static bool parseColorParam(AsyncWebServerRequest *request, const char *name, ui
 }
 
 void handleScan(AsyncWebServerRequest *request) {
+
+  if (connectState == 1) {
+    request->send(200, "application/json", "[]");
+    return;
+  }
+
   int n = WiFi.scanComplete();
   JsonDocument doc;
   
@@ -94,41 +103,60 @@ void handleConnect(AsyncWebServerRequest *request) {
     pwd = request->getParam("password", true)->value();
 
   if (!ssid.length()) {
-    Serial.println("[ERROR] Missing SSID. Cannot connect.");
-    JsonDocument errDoc;
-    errDoc["error"] = "No SSID.";
-    String errResp;
-    serializeJson(errDoc, errResp);
-    request->send(400, "application/json", errResp);
+    request->send(400, "application/json", "{\"error\":\"Chưa nhập SSID.\"}");
+    return;
+  }
+  if (connectState == 1) {
+    request->send(409, "application/json", "{\"error\":\"Đang kết nối, vui lòng đợi.\"}");
     return;
   }
 
-  Serial.printf("[WIFI] Received Connect Request -> SSID: %s; PWD: %s\n", ssid.c_str(), pwd.c_str());
+  Serial.printf("[WIFI] Thử kết nối tới SSID: %s\n", ssid.c_str());
 
-  wifiSSID = ssid;
-  wifiPass = pwd;
-  saveSettings();
+  pendingSSID = ssid;
+  pendingPass = pwd;
+  connectState = 1;
+  connectStartMs = millis();
 
-  Serial.println("[WIFI] Config saved. Restarting; boot will connect STA or fallback AP.");
+  WiFi.mode(WIFI_AP_STA);        // giữ AP để trang web không bị rớt
+  WiFi.disconnect();
+  WiFi.begin(ssid.c_str(), pwd.c_str());
+
+  request->send(200, "application/json", "{\"status\":\"connecting\"}");
+}
+
+void handleConnectStatus(AsyncWebServerRequest *request) {
+  if (connectState == 1) {
+    if (WiFi.status() == WL_CONNECTED) {
+      // Thành công: bây giờ mới lưu và restart
+      wifiSSID = pendingSSID;
+      wifiPass = pendingPass;
+      saveSettings();
+      connectState = 2;
+      Serial.println("[WIFI] Kết nối thành công, lưu cấu hình và restart.");
+      xTaskCreate([](void *) {
+        vTaskDelay(2500 / portTICK_PERIOD_MS);   // chờ trình duyệt nhận được IP
+        ESP.restart();
+        vTaskDelete(nullptr);
+      }, "restart_after_wifi", 2048, nullptr, 1, nullptr);
+    } else if (millis() - connectStartMs > 15000) {
+      // Thất bại: KHÔNG lưu, KHÔNG restart
+      Serial.println("[WIFI] Kết nối thất bại, giữ nguyên cấu hình cũ.");
+      WiFi.disconnect();
+      if (wifiSSID.length()) WiFi.begin(wifiSSID.c_str(), wifiPass.c_str()); // nối lại WiFi cũ nếu có
+      connectState = 3;
+    }
+  }
 
   JsonDocument doc;
-  doc["status"] = "ok";
-  doc["message"] = "Đã lưu WiFi. ESP32 sẽ khởi động lại và kết nối WiFi.";
+  const char *names[] = {"idle", "connecting", "success", "failed"};
+  doc["state"] = names[connectState];
+  if (connectState == 2) doc["ip"] = WiFi.localIP().toString();
   String response;
   serializeJson(doc, response);
   request->send(200, "application/json", response);
 
-  xTaskCreate(
-      [](void *param) {
-        vTaskDelay(1200 / portTICK_PERIOD_MS);
-        ESP.restart();
-        vTaskDelete(nullptr);
-      },
-      "restart_after_wifi_save",
-      2048,
-      nullptr,
-      1,
-      nullptr);
+  if (connectState == 3) connectState = 0;   // reset để thử lại được
 }
 
 void handleRoot(AsyncWebServerRequest *request) {
@@ -394,6 +422,7 @@ void setupWebUI() {
     server.on("/test_effect", HTTP_GET, handleTestEffect);
     server.on("/api/test_color", HTTP_POST, handleTestColor);
     server.on("/connectwifi", HTTP_GET, handleWifiPage);
+    server.on("/connect_status", HTTP_GET, handleConnectStatus);
     server.on("/scan", HTTP_GET, handleScan);
     server.on("/connect", HTTP_POST, handleConnect);
     auto otaResponse = [](AsyncWebServerRequest *request) {
